@@ -82,7 +82,7 @@ pub fn create_share_bundle<C: Curve, R: RngCore>(
     secret: &PrivatePoly<C>,
     public: &PublicPoly<C>,
     group: &Group<C>,
-    rng: &mut R,
+    mut rng: R,
 ) -> DKGResult<BundledShares<C>> {
     let shares = group
         .nodes
@@ -96,7 +96,7 @@ pub fn create_share_bundle<C: Curve, R: RngCore>(
             let buff = bincode::serialize(&sec.value)?;
 
             // encrypt it
-            let cipher = ecies::encrypt::<C, _>(n.key(), &buff, rng);
+            let cipher = ecies::encrypt::<C, _>(n.key(), &buff, &mut rng);
 
             // save the share
             Ok(EncryptedShare {
@@ -371,7 +371,7 @@ pub mod tests {
         let dkgs: Vec<_> = dkgs
             .into_iter()
             .map(|dkg| {
-                let (ndkg, shares) = dkg.encrypt_shares(&mut thread_rng()).unwrap();
+                let (ndkg, shares) = dkg.encrypt_shares(thread_rng).unwrap();
                 if let Some(sh) = shares {
                     all_shares.push(sh);
                 }
@@ -443,8 +443,8 @@ pub mod tests {
         let mut all_shares = Vec::with_capacity(n);
         let dkgs: Vec<_> = dkgs
             .into_iter()
-            .map(|dkg| {
-                let (ndkg, shares) = dkg.encrypt_shares(&mut thread_rng()).unwrap();
+            .filter_map(|dkg| dkg.encrypt_shares(thread_rng).ok())
+            .map(|(ndkg, shares)| {
                 if let Some(sh) = shares {
                     all_shares.push(sh);
                 }
@@ -456,8 +456,8 @@ pub mod tests {
         let response_bundles = Vec::with_capacity(n);
         let dkgs: Vec<_> = dkgs
             .into_iter()
-            .map(|dkg| {
-                let (ndkg, bundle_o) = dkg.process_shares(&all_shares, false).unwrap();
+            .filter_map(|dkg| dkg.process_shares(&all_shares, false).ok())
+            .map(|(ndkg, bundle_o)| {
                 assert!(
                     bundle_o.is_none(),
                     "full dkg should not have any complaints"
