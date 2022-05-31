@@ -3,7 +3,11 @@ use crate::{
     opts::*,
 };
 use rand::RngCore;
-use std::{fs::File, io::Write, sync::Arc};
+use std::{
+    fs::File,
+    io::{self, Write},
+    sync::Arc,
+};
 
 use dkg_core::{
     primitives::{joint_feldman::*, *},
@@ -182,7 +186,7 @@ where
 
     // Instantiate the DKG with the group info
     println!("Calculating and broadcasting our shares...");
-    let phase0 = DKG::new(private_key, group)?;
+    let phase0 = DKG::new(private_key, String::from(""), group)?;
 
     // Run Phase 1 and publish to the chain
     let phase1 = phase0.run(&mut dkg, rand::thread_rng).await?;
@@ -256,6 +260,8 @@ async fn wait_for_phase<M: ethers::providers::Middleware>(
             break;
         }
         print!(".");
+        io::stdout().flush().unwrap();
+
         // 6s for 1 Celo block
         tokio::time::delay_for(std::time::Duration::from_millis(6000)).await;
     }
